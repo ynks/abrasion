@@ -1,0 +1,183 @@
+import { Theme, Bridge } from "theme.slint";
+
+export component RulerSlider inherits Rectangle {
+    in property <int> index;
+    in property <string> label;
+    in property <bool> enabled: true;
+
+    property <float> value: Bridge.params[root.index].value;
+    property <bool> active: root.enabled && (ta.pressed || ta.has-hover);
+    property <length> pad: 5px;
+    property <int> ticks: 40;
+    property <length> span: root.width - 2 * root.pad;
+    property <length> strip-height: 26px;
+
+    height: 20px + root.strip-height;
+    opacity: root.enabled ? 1 : 0.38;
+
+    Text {
+        x: 0;
+        y: 0;
+        height: 16px;
+        text: root.label;
+        font-family: Theme.font;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 1.5px;
+        color: root.active ? Theme.ink : Theme.ink-dim;
+        vertical-alignment: center;
+    }
+
+    Text {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: 16px;
+        text: Bridge.params[root.index].text;
+        font-family: Theme.mono;
+        font-size: 12px;
+        color: Theme.ink;
+        horizontal-alignment: right;
+        vertical-alignment: center;
+    }
+
+    strip := Rectangle {
+        x: 0;
+        y: 20px;
+        width: root.width;
+        height: root.strip-height;
+        background: Theme.display;
+
+        for i in root.ticks + 1: Rectangle {
+            property <length> tall: mod(i, 10) == 0 ? 14px : (mod(i, 5) == 0 ? 10px : 6px);
+            x: round((root.pad + root.span * i / root.ticks) / 1px) * 1px;
+            y: root.strip-height - 4px - self.tall;
+            width: 1px;
+            height: self.tall;
+            background: i / root.ticks <= root.value + 0.0001 ? Theme.accent : Theme.tick-off;
+        }
+
+        // needle
+        Rectangle {
+            x: round((root.pad + root.span * root.value) / 1px) * 1px - 1px;
+            y: 2px;
+            width: 3px;
+            height: root.strip-height - 4px;
+            background: Theme.body;
+        }
+
+        ta := TouchArea {
+            property <float> start-value;
+            property <bool> fine;
+            property <float> pos: clamp((self.mouse-x - root.pad) / root.span, 0, 1);
+            enabled: root.enabled;
+            mouse-cursor: ew-resize;
+            pointer-event(e) => {
+                if (e.button == PointerEventButton.left && e.kind == PointerEventKind.down) {
+                    self.fine = e.modifiers.control || e.modifiers.shift;
+                    self.start-value = root.value;
+                    Bridge.begin(root.index);
+                    if (!self.fine) {
+                        Bridge.set(root.index, self.pos);
+                    }
+                }
+                if (e.button == PointerEventButton.left && e.kind == PointerEventKind.up) {
+                    Bridge.end(root.index);
+                }
+            }
+            moved => {
+                if (self.pressed) {
+                    Bridge.set(root.index, self.fine
+                        ? clamp(self.start-value + (self.mouse-x - self.pressed-x) / self.width * 0.1, 0, 1)
+                        : self.pos);
+                }
+            }
+            double-clicked => {
+                Bridge.reset(root.index);
+            }
+            scroll-event(e) => {
+                Bridge.begin(root.index);
+                Bridge.set(root.index, clamp(root.value + (e.delta-y + e.delta-x) / 1px / 1500, 0, 1));
+                Bridge.end(root.index);
+                accept
+            }
+        }
+    }
+}
+
+// sine 0, triangle 1, square 2, noise 3
+export component CarrierChip inherits Rectangle {
+    in property <string> text;
+    in property <int> icon;
+    // 0 is grey, 1 is full accent
+    in property <float> glow;
+    in property <bool> clickable: false;
+    callback clicked();
+
+    property <color> tint: Theme.accent.mix(Theme.glyph-off, clamp(root.glow, 0, 1));
+
+    width: 92px;
+    height: 24px;
+    background: Theme.display;
+
+    HorizontalLayout {
+        alignment: center;
+        spacing: 6px;
+
+        Rectangle {
+            width: 12px;
+
+            if root.icon == 0: Path {
+                width: 12px;
+                height: 8px;
+                viewbox-width: 12;
+                viewbox-height: 8;
+                commands: "M 0 4 C 1.5 -1.3 4.5 -1.3 6 4 C 7.5 9.3 10.5 9.3 12 4";
+                stroke: root.tint;
+                stroke-width: 1.2px;
+            }
+            if root.icon == 1: Path {
+                width: 12px;
+                height: 8px;
+                viewbox-width: 12;
+                viewbox-height: 8;
+                commands: "M 1 8 L 6 0 L 11 8";
+                stroke: root.tint;
+                stroke-width: 1.2px;
+            }
+            if root.icon == 2: Path {
+                width: 12px;
+                height: 8px;
+                viewbox-width: 12;
+                viewbox-height: 8;
+                commands: "M 1 8 L 1 0.5 L 11 0.5 L 11 8";
+                stroke: root.tint;
+                stroke-width: 1.2px;
+            }
+            if root.icon == 3: Rectangle {
+                width: 8px;
+                height: 8px;
+                Rectangle { x: 3px; y: 0; width: 2px; height: 2px; background: root.tint; }
+                Rectangle { x: 0; y: 3px; width: 2px; height: 2px; background: root.tint; }
+                Rectangle { x: 6px; y: 3px; width: 2px; height: 2px; background: root.tint; }
+                Rectangle { x: 3px; y: 6px; width: 2px; height: 2px; background: root.tint; }
+            }
+        }
+
+        Text {
+            text: root.text;
+            font-family: Theme.mono;
+            font-size: 10px;
+            letter-spacing: 1.5px;
+            color: root.tint;
+            vertical-alignment: center;
+        }
+    }
+
+    if root.clickable: TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}

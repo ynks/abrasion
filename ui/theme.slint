@@ -1,0 +1,47 @@
+export global Theme {
+    out property <color> body: #c7c9cb;
+    out property <color> body-dim: #c7c9cb70;
+    out property <color> ink: #1b1d20;
+    out property <color> ink-dim: #1b1d20a0;
+    out property <color> ink-faint: #1b1d2026;
+    out property <color> display: #141619;
+    out property <color> accent: #ff4d3d;
+    out property <color> accent-dim: #ff4d3d60;
+    out property <color> accent-off: #ff4d3d16;
+    out property <color> tick-off: #c7c9cb38;
+    out property <color> glyph-off: #5a5e64;
+
+    out property <string> font: "Segoe UI";
+    out property <string> mono: "Consolas";
+}
+
+export struct ParamState {
+    value: float,
+    plain: float,
+    text: string,
+}
+
+// same order as ui_order in params
+export global P {
+    out property <int> freq: 0;
+    out property <int> amount: 1;
+    out property <int> blend: 2;
+    out property <int> width: 3;
+    out property <int> stereo: 4;
+    out property <int> drift: 5;
+    out property <int> shape: 6;
+}
+
+export global Bridge {
+    in-out property <[ParamState]> params;
+
+    callback begin(int);
+    callback set(int, float);
+    callback end(int);
+    callback reset(int);
+    callback set-plain-in-gesture(int, float);
+
+    in property <image> display;
+    // x on the log axis, y from the bottom
+    callback drag-xy(float, float, bool);
+}

@@ -1,0 +1,168 @@
+import { Theme, Bridge, P, ParamState } from "theme.slint";
+import { RulerSlider, CarrierChip } from "widgets.slint";
+
+export { Bridge, ParamState }
+
+// must match the strata renderer size
+global View {
+    out property <length> width: 508px;
+    out property <length> height: 200px;
+}
+
+component Tip inherits Rectangle {
+    in property <string> text;
+    width: t.preferred-width + 12px;
+    height: 18px;
+    background: Theme.body;
+    t := Text {
+        text: root.text;
+        font-family: Theme.mono;
+        font-size: 11px;
+        color: Theme.ink;
+    }
+}
+
+export component AppWindow inherits Window {
+    width: 560px;
+    height: 420px;
+    title: "Abrasion";
+    default-font-family: Theme.font;
+    background: Theme.body;
+
+    property <float> blend: Bridge.params[P.blend].value;
+    property <int> shape: round(Bridge.params[P.shape].value * 2);
+    property <bool> noisy: root.blend > 0.0005;
+
+    HorizontalLayout {
+        x: 16px;
+        y: 0;
+        width: parent.width - 32px;
+        height: 48px;
+        spacing: 6px;
+
+        Text {
+            text: "abrasion";
+            font-family: Theme.font;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            color: Theme.ink;
+            vertical-alignment: center;
+        }
+        Rectangle { horizontal-stretch: 1; }
+        VerticalLayout {
+            alignment: center;
+            CarrierChip {
+                icon: root.shape;
+                text: root.shape == 0 ? "SINE" : (root.shape == 1 ? "TRI" : "SQUARE");
+                glow: 1 - root.blend;
+                clickable: true;
+                clicked => {
+                    Bridge.begin(P.shape);
+                    Bridge.set(P.shape, mod(root.shape + 1, 3) / 2);
+                    Bridge.end(P.shape);
+                }
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            CarrierChip {
+                icon: 3;
+                text: "NOISE";
+                glow: root.blend;
+            }
+        }
+    }
+
+    Rectangle {
+        x: 12px;
+        y: 48px;
+        width: parent.width - 24px;
+        height: 228px;
+        background: Theme.display;
+
+        Rectangle {
+            x: 14px;
+            y: 14px;
+            width: View.width;
+            height: View.height;
+
+            Image {
+                width: parent.width;
+                height: parent.height;
+                source: Bridge.display;
+                image-fit: fill;
+            }
+
+            // x is freq, y is amount, or filter width with alt
+            xy := TouchArea {
+                property <bool> alt;
+                mouse-cursor: crosshair;
+                pointer-event(e) => {
+                    if (e.button == PointerEventButton.left && e.kind == PointerEventKind.down) {
+                        self.alt = e.modifiers.alt && root.noisy;
+                        Bridge.begin(P.freq);
+                        Bridge.begin(self.alt ? P.width : P.amount);
+                        Bridge.drag-xy(clamp(self.mouse-x / View.width, 0, 1), clamp(1 - self.mouse-y / View.height, 0, 1), self.alt);
+                    }
+                    if (e.button == PointerEventButton.left && e.kind == PointerEventKind.up) {
+                        Bridge.end(P.freq);
+                        Bridge.end(self.alt ? P.width : P.amount);
+                    }
+                }
+                moved => {
+                    if (self.pressed) {
+                        Bridge.drag-xy(clamp(self.mouse-x / View.width, 0, 1), clamp(1 - self.mouse-y / View.height, 0, 1), self.alt);
+                    }
+                }
+                double-clicked => {
+                    Bridge.reset(P.freq);
+                    Bridge.reset(P.amount);
+                }
+            }
+
+            handle := Rectangle {
+                property <float> pos: log(clamp(Bridge.params[P.freq].plain, 20, 20000) / 20, 1000);
+                property <float> level: xy.pressed && xy.alt ? Bridge.params[P.width].value : Bridge.params[P.amount].value;
+                x: View.width * self.pos - 4px;
+                y: View.height * (1 - self.level) - 4px;
+                width: 8px;
+                height: 8px;
+                background: Theme.body;
+                Rectangle {
+                    width: 4px;
+                    height: 4px;
+                    background: Theme.display;
+                }
+            }
+
+            if xy.pressed: Tip {
+                x: (View.width - self.width) / 2;
+                y: 8px;
+                text: xy.alt
+                    ? "width " + Bridge.params[P.width].text
+                    : Bridge.params[P.freq].text + " · " + Bridge.params[P.amount].text;
+            }
+        }
+    }
+
+    HorizontalLayout {
+        x: 16px;
+        y: 292px;
+        width: parent.width - 32px;
+        spacing: 16px;
+        RulerSlider { index: P.freq; label: "FREQ"; }
+        RulerSlider { index: P.amount; label: "AMOUNT"; }
+        RulerSlider { index: P.drift; label: "DRIFT"; }
+    }
+
+    HorizontalLayout {
+        x: 16px;
+        y: 354px;
+        width: parent.width - 32px;
+        spacing: 16px;
+        RulerSlider { index: P.blend; label: "NOISE BLEND"; }
+        RulerSlider { index: P.width; label: "FILTER WIDTH"; enabled: root.noisy; }
+        RulerSlider { index: P.stereo; label: "STEREO WIDTH"; }
+    }
+}

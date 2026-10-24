@@ -1,0 +1,48 @@
+[workspace]
+members = ["xtask"]
+resolver = "2"
+
+[package]
+name = "abrasion"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+description = "Digital degradation through a delay modulated by sine and filtered noise"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+nih_plug = { git = "https://github.com/robbert-vdh/nih-plug", rev = "de421011f41a6d10fc8c7a6084e4f4dee0143683", default-features = false, features = ["vst3"] }
+raw-window-handle = "0.5"
+raw-window-handle-06 = { package = "raw-window-handle", version = "0.6" }
+baseview = { git = "https://github.com/RustAudio/baseview.git", rev = "9a0b42c09d712777b2edb4c5e0cb6baf21e988f0" }
+keyboard-types = { version = "0.6", default-features = false }
+crossbeam = "0.8"
+atomic_float = "0.1"
+triple_buffer = "9.0.0"
+serde = { version = "1.0", features = ["derive"] }
+realfft = "3.5.0"
+slint = { version = "1.18.1", default-features = false, features = ["std", "compat-1-2", "renderer-software", "software-renderer-systemfonts", "software-renderer-path"] }
+softbuffer = { version = "0.4.8", default-features = false }
+
+[profile.release]
+lto = "thin"
+strip = "symbols"
+
+[profile.profiling]
+inherits = "release"
+debug = true
+strip = "none"
+
+[build-dependencies]
+slint-build = "1.18.1"
+
+[features]
+# preview without a daw
+standalone = ["nih_plug/standalone"]
+
+[[bin]]
+name = "abrasion_standalone"
+path = "src/main.rs"
+required-features = ["standalone"]
